@@ -1,0 +1,69 @@
+var blobURL = URL.createObjectURL( new Blob([ '(',
+function(){
+var now = new Date();
+var time;
+var start_time = (new Date(now.getFullYear(), now.getMonth(), now.getDate()+4, 9, 30).getTime() - new Date(2024, 0, 1, 0, 0).getTime())/60000+28400790;
+var end_time = start_time + 9*60;
+function AzureWeb() {
+                timesRun += 1;
+//
+fetch("https://wsp.flowscape.se/argus/secure/deskbooking/user", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/json",
+    "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin"
+  },
+  "referrer": "https://wsp.flowscape.se/webapp/",
+  "referrerPolicy": "strict-origin-when-cross-origin",
+  "body": null,
+  "method": "GET",
+  "mode": "cors",
+  "credentials": "include"
+}); ;
+fetch("https://wsp.flowscape.se/argus/secure/deskbooking/desk/368805", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/json",
+    "priority": "u=1, i",
+    "sec-ch-ua": "\"Google Chrome\";v=\"125\", \"Chromium\";v=\"125\", \"Not.A/Brand\";v=\"24\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin"
+  },
+  "referrer": "https://wsp.flowscape.se/webapp/",
+  "referrerPolicy": "strict-origin-when-cross-origin",
+  "body": "{\"start\":"+start_time+",\"end\":"+end_time+"}",
+  "method": "POST",
+  "mode": "cors",
+  "credentials": "include"
+}).then(response=>response.json()).then(res => {console.log(res)}); 
+//
+console.log(timesRun)
+}
+function ResponseON() {
+var startTime = new Date().getTime();
+var recurr = setInterval(function(){
+time = new Date().getTime() - startTime;
+    if(time > 60000){
+        clearInterval(recurr);
+        return;
+    } else {
+AzureWeb();
+}
+}, 1000);
+}
+var timesRun = 0;
+console.log("Timer started!");
+var eta_ms = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 11, 59).getTime() - Date.now()+50000; var timeout = setTimeout(ResponseON, eta_ms);
+}.toString(),
+')()' ], { type: 'application/javascript' } ) ),
+worker = new Worker( blobURL );

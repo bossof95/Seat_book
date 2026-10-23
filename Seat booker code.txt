@@ -1,0 +1,62 @@
+var now = new Date();
+var time;
+function AzureWeb() {
+                timesRun += 1;
+//
+fetch("https://wsp.flowscape.se/argus/secure/deskbooking/user", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/json",
+    "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin"
+  },
+  "referrer": "https://wsp.flowscape.se/webapp/",
+  "referrerPolicy": "strict-origin-when-cross-origin",
+  "body": null,
+  "method": "GET",
+  "mode": "cors",
+  "credentials": "include"
+}); ;
+fetch("https://wsp.flowscape.se/argus/secure/deskbooking/desk/1147045", {
+  "headers": {
+    "accept": "application/json",
+    "accept-language": "en-US,en;q=0.9",
+    "content-type": "application/json",
+    "sec-ch-ua": "\"Not A(Brand\";v=\"99\", \"Google Chrome\";v=\"121\", \"Chromium\";v=\"121\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"Windows\"",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-origin"
+  },
+  "referrer": "https://wsp.flowscape.se/webapp/",
+  "referrerPolicy": "strict-origin-when-cross-origin",
+  "body": "{\"start\":28438740,\"end\":28439340}",
+  "method": "POST",
+  "mode": "cors",
+  "credentials": "include"
+}).then(response=>response.json()).then(res => {console.log(res)}); 
+//
+
+console.log(timesRun)
+}
+function ResponseON() {
+var startTime = new Date().getTime();
+var recurr = setInterval(function(){
+time = new Date().getTime() - startTime;
+    if(time > 120000){
+        clearInterval(recurr);
+        return;
+    } else {
+AzureWeb();
+}
+}, 1000);
+}
+var timesRun = 0;
+var eta_ms = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 6, 59).getTime() - Date.now(); var timeout = setTimeout(ResponseON, eta_ms);
+

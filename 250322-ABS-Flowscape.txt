@@ -1,0 +1,121 @@
+// Declare a dictionary (object) with choices and their corresponding SeatIds
+const choices = {
+    '392': 1610092,
+    '2': 12652,
+    '119': 491884
+};
+
+// Get the available choices from the dictionary to dynamically update the prompt message
+const availableChoices = Object.keys(choices).join(" or ");
+
+// Declare SeatId variable
+let SeatId;
+
+// Loop until the user selects a valid option
+while (true) {
+    // Ask user to select a choice dynamically from the dictionary
+    const userChoice = prompt(`Please select ${availableChoices}:`).trim();
+
+    // Check if the user choice exists in the dictionary (choices object)
+    if (choices[userChoice]) {
+        SeatId = choices[userChoice];
+        break;  // Exit the loop once a valid selection is made
+    } else {
+        alert(`Invalid selection. Please choose one of the following: ${availableChoices}`);
+    }
+}
+
+// Calculate the start_time and end_time dynamically
+var now = new Date();
+var start_time = (new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4, 9, 30).getTime() - new Date(2024, 0, 1, 0, 0).getTime()) / 60000 + 28400790;
+var end_time = start_time + 9 * 60; // 9 hours later
+
+// Misc variables
+var status;
+var RunCount = 0;
+
+// Access DOM root
+var div = document.getElementById('root');
+
+// Clear page
+div.innerHTML = `<br>`;
+
+// Create a new sub-element (e.g., a div) to display the run count
+var subElement = document.createElement('div');
+subElement.id = 'runCountDisplay';  // Give it an id (optional)
+div.appendChild(subElement);  // Append the new sub-element to the root
+
+console.log("Start Time:", start_time);
+console.log("End Time:", end_time);
+
+// Function to fetch and check the state of the desk with id
+async function checkDeskStatus() {
+    RunCount += 1;
+    subElement.innerHTML = `Run count: ${RunCount} <br>`;
+    
+    try {
+        const response = await fetch(`https://wsp.flowscape.se/argus/secure/status/floorId/364?start=${start_time}&end=${end_time}&desks=true&rooms=true`, {
+            "headers": {
+                "accept": "application/json",
+                "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+                "cache-control": "no-cache",
+                "content-type": "application/json",
+                "pragma": "no-cache",
+                "priority": "u=1, i",
+                "sec-ch-ua": "\"Chromium\";v=\"134\", \"Not:A-Brand\";v=\"24\", \"Microsoft Edge\";v=\"134\"",
+                "sec-ch-ua-mobile": "?0",
+                "sec-ch-ua-platform": "\"Windows\"",
+                "sec-fetch-dest": "empty",
+                "sec-fetch-mode": "cors",
+                "sec-fetch-site": "same-origin"
+            },
+            "referrer": "https://wsp.flowscape.se/webapp/",
+            "referrerPolicy": "strict-origin-when-cross-origin",
+            "body": null,
+            "method": "GET",
+            "mode": "cors",
+            "credentials": "include"
+        });
+        
+        const data = await response.json();
+        
+        // Check the desk status for "id"
+		const desk = data.deskStatus.find(desk => desk.id === SeatId);
+
+        // If the desk state is "FREE" and not "NONE", log a message and trigger additional fetches
+        if (desk && desk.state === "FREE") {
+            console.log("Desk ",SeatId," is now FREE!");
+
+            // Post desk booking data for desk
+            const bookingResponse = await fetch(`https://wsp.flowscape.se/argus/secure/deskbooking/desk/${SeatId}`, {
+                headers: {
+                    "accept": "application/json",
+                    "accept-language": "en-US,en;q=0.9",
+                    "content-type": "application/json",
+                },
+                referrer: "https://wsp.flowscape.se/webapp/",
+                referrerPolicy: "strict-origin-when-cross-origin",
+                body: JSON.stringify({
+                    start: start_time,
+                    end: end_time
+                }),
+                method: "POST",
+                mode: "cors",
+                credentials: "include"
+            });
+
+            const bookingData = await bookingResponse.json();
+            status = JSON.stringify(bookingData);
+            console.log("Booking Status:", status);
+
+            // Write output
+            div.innerHTML += `<br> ${status}`;
+
+        }
+    } catch (error) {
+        console.error("Error fetching desk status:", error);
+    }
+}
+
+// Run the function every 0.4 second (400 milliseconds)
+const intervalId = setInterval(checkDeskStatus, 400);

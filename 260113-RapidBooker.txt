@@ -1,0 +1,289 @@
+(async function () {
+    /* ==========================================
+       1. UI & LOGGER SETUP (Visual Interface)
+       ========================================== */
+    
+    /* Create or find the root container */
+    var div = document.getElementById('root');
+    if (!div) {
+        div = document.createElement('div');
+        div.id = 'root'; 
+        /* Ensure we attach to body even if document isn't fully ready */
+        if (document.body) {
+            document.body.prepend(div);
+        } else {
+            document.documentElement.appendChild(div);
+        }
+    }
+    /* Note: We proceed even if div exists, appending our logs to it. */
+
+    /* Inject CSS styles for the dashboard */
+    var styleId = 'booking-bot-styles';
+    if (!document.getElementById(styleId)) {
+        var style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+          #root { 
+              font-family: system-ui, -apple-system, sans-serif; 
+              padding: 12px; 
+              background: #fff; 
+              border: 1px solid #ccc; 
+              max-height: 50vh; 
+              overflow-y: auto;
+              position: fixed;
+              top: 10px;
+              right: 10px;
+              width: 400px;
+              z-index: 99999;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+              border-radius: 8px;
+              /* Force vertical stacking */
+              display: flex !important;
+              flex-direction: column !important;
+          }
+          .booking-log { 
+              padding: 6px 8px; 
+              border-left: 3px solid #999; 
+              background: #f7f7f7; 
+              margin: 4px 0; 
+              white-space: pre-wrap; 
+              font-size: 13px; 
+              font-family: monospace; 
+              width: 100%; /* Ensure full width */
+              box-sizing: border-box; /* Include padding in width */
+          }
+          .booking-log.info { border-color: #2b7cff; background: #f0f6ff; }
+          .booking-log.warn { border-color: #f5a623; background: #fff8e6; }
+          .booking-log.error { border-color: #e74c3c; background: #fff0f0; }
+          .booking-log.success { border-color: #2ecc71; background: #f0fdf4; }
+          .booking-header { display: flex; align-items: center; gap: 8px; }
+          .booking-ts { color: #888; font-size: 11px; min-width: 60px; }
+          .booking-badge { background: #e0e0e0; border-radius: 10px; padding: 2px 6px; font-size: 10px; color: #333; font-weight: bold; }
+          .booking-details { margin-top: 4px; padding: 6px; background: rgba(255,255,255,0.5); border: 1px solid #00000010; font-size: 11px; overflow-x: auto; }
+        `;
+        document.head.appendChild(style);
+    }
+
+    /* Add Header with Close Button (Only if not present) */
+    if (!div.querySelector('.bot-header-row')) {
+        var headerRow = document.createElement('div');
+        headerRow.className = 'bot-header-row';
+        headerRow.style.cssText = 'display:flex; justify-content:space-between; margin-bottom:10px; align-items:center; border-bottom:1px solid #eee; padding-bottom:5px; width:100%; box-sizing:border-box;';
+        
+        var title = document.createElement('div');
+        title.innerHTML = '<strong>🤖 Desk Bot</strong>';
+        
+        var closeBtn = document.createElement('button');
+        closeBtn.textContent = '✕';
+        closeBtn.style.cssText = 'border:none; background:none; cursor:pointer; font-size:16px; color:#666;';
+        closeBtn.onclick = function() { div.remove(); };
+        
+        headerRow.appendChild(title);
+        headerRow.appendChild(closeBtn);
+        
+        /* Prepend to ensure it's at the top if root has other content */
+        div.prepend(headerRow);
+    }
+
+    /* Logger Utility Functions */
+    var groups = new Map();
+    
+    function stamp() {
+        return new Date().toLocaleTimeString('en-GB', { hour12: false });
+    }
+
+    function appendLog(level, message, data) {
+        /* Simple grouping to prevent UI spam */
+        var key = level + '|' + message;
+        var group = groups.get(key);
+
+        if (!group) {
+            /* Create new log entry */
+            var el = document.createElement('div');
+            el.className = 'booking-log ' + level;
+            
+            var header = document.createElement('div');
+            header.className = 'booking-header';
+            
+            var tsSpan = document.createElement('span');
+            tsSpan.className = 'booking-ts';
+            tsSpan.textContent = stamp();
+
+            var msgSpan = document.createElement('span');
+            msgSpan.textContent = message;
+            msgSpan.style.flex = "1";
+
+            var badge = document.createElement('span');
+            badge.className = 'booking-badge';
+            badge.textContent = '×1';
+            badge.style.display = 'none';
+
+            header.appendChild(tsSpan);
+            header.appendChild(msgSpan);
+            header.appendChild(badge);
+            el.appendChild(header);
+
+            /* Optional details block for data */
+            var detailsPre = null;
+            if (data) {
+                detailsPre = document.createElement('div');
+                detailsPre.className = 'booking-details';
+                try {
+                    detailsPre.textContent = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
+                } catch(e) { detailsPre.textContent = String(data); }
+                el.appendChild(detailsPre);
+            }
+
+            div.appendChild(el); 
+            div.scrollTop = div.scrollHeight; /* Auto scroll */
+            
+            group = { el: el, count: 1, badge: badge, tsSpan: tsSpan, detailsPre: detailsPre };
+            groups.set(key, group);
+        } else {
+            /* Update existing entry */
+            group.count++;
+            group.badge.textContent = '×' + group.count;
+            group.badge.style.display = 'inline-block';
+            group.tsSpan.textContent = stamp(); /* Update time to latest */
+            if (data && group.detailsPre) {
+                try {
+                    group.detailsPre.textContent = (typeof data === 'string') ? data : JSON.stringify(data, null, 2);
+                } catch(e) { group.detailsPre.textContent = String(data); }
+            }
+        }
+    }
+
+    /* Map console methods to UI */
+    var ui = {
+        log: function(msg, data) { appendLog('info', msg, data); },
+        warn: function(msg, data) { appendLog('warn', msg, data); },
+        error: function(msg, data) { appendLog('error', msg, data); },
+        success: function(msg, data) { appendLog('success', msg, data); }
+    };
+
+    /* ===============
+       2. CORE LOGIC
+       ================ */
+
+    var CONFIG = {
+        seatId: 1610092,      /* 🔁 Change to your desired desk ID */
+        postAttempts: 100,    /* Number of booking attempts */
+        AttemptGap: 450,      /* Gap between fetch requests in ms */
+        sessionOffset: 28400790,
+        dayOffset: 4,         /* Booking how many days ahead */
+        bookingHour: 9,
+        bookingMinute: 30,
+        durationMinutes: 540, /* 9 hours */
+        triggerHour: 11,
+        triggerMinute: 59,
+        triggerSec: 54,
+        triggerMilliSec: 200,
+        prewarmMinutesBefore: 1 /* Time before trigger to prewarm connection */
+    };
+
+    function computeTimes() {
+        var now = new Date();
+        var bookingDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + CONFIG.dayOffset, CONFIG.bookingHour, CONFIG.bookingMinute);
+        var baseDate = new Date(2024, 0, 1);
+        var start = (bookingDate - baseDate) / 60000 + CONFIG.sessionOffset;
+        var end = start + CONFIG.durationMinutes;
+        return { start: start, end: end, bookingDate: bookingDate };
+    }
+
+    async function prewarmConnection(start, end) {
+        try {
+            ui.log("🌐 Pre-warming connection...", { url: ".../floorId/364?start=" + start + "..." });
+            var url = "https://wsp.flowscape.se/argus/secure/status/floorId/364?start=" + start + "&end=" + end + "&desks=true&rooms=false";
+            await fetch(url, {
+                method: "GET",
+                credentials: "include",
+                cache: "no-store"
+            });
+            ui.success("✅ Connection pre-warmed.");
+        } catch (err) {
+            ui.warn("⚠️ Pre-warming failed:", err);
+        }
+    }
+
+    async function bookDesk(seatId, start, end, attempt) {
+        try {
+            var res = await fetch("https://wsp.flowscape.se/argus/secure/deskbooking/desk/" + seatId, {
+                method: "POST",
+                credentials: "include",
+                keepalive: true,
+                headers: {
+                    "accept": "application/json",
+                    "content-type": "application/json"
+                },
+                body: JSON.stringify({ start: start, end: end })
+            });
+
+            var data = await res.json();
+            if (res.ok && data && data.status === "BOOKED") {
+                ui.success("🎉 [Attempt " + attempt + "] Successfully booked!", data);
+            } else {
+                ui.warn("⚠️ [Attempt " + attempt + "] Booking response:", data);
+            }
+        } catch (err) {
+            ui.error("❌ [Attempt " + attempt + "] Booking failed:", err);
+        }
+    }
+
+    /* ==========================================
+       3. EXECUTION FLOW
+       ========================================== */
+
+    var now = new Date();
+    var targetTime = new Date(
+        now.getFullYear(), 
+        now.getMonth(), 
+        now.getDate(), 
+        CONFIG.triggerHour, 
+        CONFIG.triggerMinute, 
+        CONFIG.triggerSec, 
+        CONFIG.triggerMilliSec
+    );
+    var prewarmTime = new Date(targetTime.getTime() - CONFIG.prewarmMinutesBefore * 60000);
+
+    var timeUntilPrewarm = prewarmTime - now;
+    var timeUntilBooking = targetTime - now;
+
+    var times = computeTimes();
+    var start = times.start;
+    var end = times.end;
+    var bookingDate = times.bookingDate;
+
+    /* Initial Status Log */
+    ui.log("⚙️ Script Loaded & Configured", {
+        targetTime: targetTime.toLocaleTimeString(),
+        bookingDate: bookingDate.toLocaleTimeString() + " (" + bookingDate.toDateString() + ")",
+        seatId: CONFIG.seatId,
+        msUntilTrigger: Math.round(timeUntilBooking)
+    });
+
+    if (timeUntilBooking < -1000) {
+        ui.warn("⏰ Booking time has already passed for today.");
+    }
+
+    if (timeUntilPrewarm > 0) {
+        ui.log("⏳ Waiting " + (timeUntilPrewarm/1000).toFixed(1) + "s to pre-warm connection at " + prewarmTime.toLocaleTimeString() + "...");
+    } else {
+        ui.log("⏳ Pre-warm time passed or is now. Will pre-warm immediately/shortly.");
+    }
+
+    /* Pre-warm connection */
+    setTimeout(function() {
+        prewarmConnection(start, end);
+    }, Math.max(0, timeUntilPrewarm));
+
+    /* Trigger booking at exact time */
+    setTimeout(function() {
+        ui.log("🚀 Booking NOW!", { attempts: CONFIG.postAttempts, gap: CONFIG.AttemptGap });
+        for (var i = 1; i <= CONFIG.postAttempts; i++) {
+            (function(index) {
+                setTimeout(function() { bookDesk(CONFIG.seatId, start, end, index); }, index * CONFIG.AttemptGap);
+            })(i);
+        }
+    }, Math.max(0, timeUntilBooking));
+
+})();

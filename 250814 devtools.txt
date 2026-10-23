@@ -1,0 +1,92 @@
+(async function () {
+    const CONFIG = {
+        seatId: 1610092, // 🔁 Change to your desired desk ID
+        postAttempts: 100, // Number of booking attempts
+        sessionOffset: 28400790,
+        dayOffset: 4, // Booking how many days ahead
+        bookingHour: 9,
+        bookingMinute: 30,
+        durationMinutes: 540, // 9 hours
+        triggerHour: 11,
+        triggerMinute: 59,
+        triggerSec: 58,
+        triggerMilliSec: 200,
+        prewarmMinutesBefore: 1 // Time before trigger to prewarm connection
+    };
+ 
+    function computeTimes() {
+        const now = new Date();
+        const bookingDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + CONFIG.dayOffset, CONFIG.bookingHour, CONFIG.bookingMinute);
+        const baseDate = new Date(2024, 0, 1);
+        const start = (bookingDate - baseDate) / 60000 + CONFIG.sessionOffset;
+        const end = start + CONFIG.durationMinutes;
+        return { start, end };
+    }
+ 
+    async function prewarmConnection(start, end) {
+        try {
+            console.log("🌐 Pre-warming connection...");
+            const url = `https://wsp.flowscape.se/argus/secure/status/floorId/364?start=${start}&end=${end}&desks=true&rooms=false`;
+            await fetch(url, {
+                method: "GET",
+                credentials: "include",
+                cache: "no-store"
+            });
+            console.log("✅ Connection pre-warmed.");
+        } catch (err) {
+            console.warn("⚠️ Pre-warming failed:", err);
+        }
+    }
+ 
+    async function bookDesk(seatId, start, end, attempt) {
+        try {
+            const res = await fetch(`https://wsp.flowscape.se/argus/secure/deskbooking/desk/${seatId}`, {
+                method: "POST",
+                credentials: "include",
+                keepalive: true,
+                headers: {
+                    "accept": "application/json",
+                    "content-type": "application/json"
+                },
+                body: JSON.stringify({ start, end })
+            });
+ 
+            const data = await res.json();
+            if (res.ok && data?.status === "BOOKED") {
+                console.log(`🎉 [Attempt ${attempt}] Successfully booked!`, data);
+            } else {
+                console.log(`⚠️ [Attempt ${attempt}] Booking response:`, data);
+            }
+        } catch (err) {
+            console.error(`❌ [Attempt ${attempt}] Booking failed:`, err);
+        }
+    }
+ 
+    const now = new Date();
+    const targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), CONFIG.triggerHour, CONFIG.triggerMinute, CONFIG.triggerSec, CONFIG.triggerMilliSec);
+    const prewarmTime = new Date(targetTime.getTime() - CONFIG.prewarmMinutesBefore * 60000);
+ 
+    const timeUntilPrewarm = prewarmTime - now;
+    const timeUntilBooking = targetTime - now;
+ 
+    const { start, end } = computeTimes();
+ 
+    if (timeUntilBooking < -1000) {
+        console.warn("⏰ Booking time has already passed.");
+    }
+ 
+    console.log(`⏳ Waiting ${timeUntilPrewarm} ms to pre-warm connection at ${prewarmTime.toLocaleTimeString()}...`);
+ 
+    // Pre-warm connection
+    setTimeout(() => {
+        prewarmConnection(start, end);
+    }, Math.max(0, timeUntilPrewarm));
+ 
+    // Trigger booking at exact time
+    setTimeout(() => {
+        console.log("🚀 Booking NOW!");
+        for (let i = 1; i <= CONFIG.postAttempts; i++) {
+            setTimeout(() => bookDesk(CONFIG.seatId, start, end, i), i * 250);
+        }
+    }, Math.max(0, timeUntilBooking));
+})();
